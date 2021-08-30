@@ -19,3 +19,15 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+-keepclassmembers  class com.serenegiant.usb.UVCCamera {
+   *;
+}
+
+#-keep interface com.serenegiant.usb.IFrameCallback {
+#  public *;
+#}
+
+-keepclassmembers interface com.serenegiant.usb.IFrameCallback {
+  *;
+}

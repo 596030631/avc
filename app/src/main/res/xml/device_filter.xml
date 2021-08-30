@@ -29,4 +29,10 @@
         subclass="2"
         product-id="4097"
         vendor-id="7532"/>
+
+    <usb-device
+        class="239"
+        subclass="2"
+        product-id="13179"
+        vendor-id="2316"/>
 </usb>

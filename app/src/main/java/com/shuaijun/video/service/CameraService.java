@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
 
+import com.shuaijun.avc.AvcEncoder;
 import com.shuaijun.video.camera.UsbManager;
 
 public class CameraService extends Service {
@@ -26,6 +27,7 @@ public class CameraService extends Service {
     @Override
     public boolean onUnbind(Intent intent) {
         Log.d("TAG", "录像服务解绑");
+        UsbManager.getInstance().stopRecording();
         return super.onUnbind(intent);
     }
 
@@ -33,6 +35,7 @@ public class CameraService extends Service {
     public void onDestroy() {
         super.onDestroy();
         UsbManager.getInstance().releaseUsbMonitor();
+        AvcEncoder.getInstance().release();
         Log.d("TAG", "录像服务销毁");
     }
 }

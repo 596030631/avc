@@ -3,12 +3,28 @@ package com.shuaijun.video.service;
 import android.os.RemoteException;
 
 import com.shuaijun.video.ICameraServiceAidl;
+import com.shuaijun.video.camera.UsbManager;
 
 public class CameraBinder extends ICameraServiceAidl.Stub {
 
-    @Override
-    public void basicTypes(int anInt, long aLong, boolean aBoolean, float aFloat, double aDouble, String aString) throws RemoteException {
 
+    @Override
+    public void startRecording() throws RemoteException {
+        UsbManager.getInstance().startRecording();
     }
 
+    @Override
+    public void stopRecording() throws RemoteException {
+        UsbManager.getInstance().stopRecording();
+    }
+
+    @Override
+    public void openCamera() throws RemoteException {
+        UsbManager.getInstance().openCamera();
+    }
+
+    @Override
+    public void closeCamera() throws RemoteException {
+        UsbManager.getInstance().closeCamera();
+    }
 }

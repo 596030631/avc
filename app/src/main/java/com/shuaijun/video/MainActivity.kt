@@ -30,12 +30,23 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        findViewById<Button>(R.id.bind_service).setOnClickListener {
-            bindService()
+        bindService()
+
+
+        findViewById<Button>(R.id.open_camera).setOnClickListener {
+            cameraServiceAidl?.openCamera()
         }
 
-        findViewById<Button>(R.id.unbind_service).setOnClickListener {
-            unbindService()
+        findViewById<Button>(R.id.close_camera).setOnClickListener {
+            cameraServiceAidl?.closeCamera()
+        }
+
+        findViewById<Button>(R.id.start_recording).setOnClickListener {
+            startRecording()
+        }
+
+        findViewById<Button>(R.id.stop_recording).setOnClickListener {
+            stopRecording()
         }
     }
 
@@ -50,5 +61,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun unbindService() {
         applicationContext.unbindService(serviceConnection)
+    }
+
+    private fun startRecording() {
+        cameraServiceAidl?.startRecording()
+    }
+
+    private fun stopRecording() {
+        cameraServiceAidl?.stopRecording()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unbindService()
     }
 }
