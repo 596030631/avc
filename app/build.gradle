@@ -4,20 +4,20 @@ plugins {
 }
 
 android {
-    signingConfigs {
-        debug {
-            storeFile file('F:\\Android\\EasyTouch.jks')
-            keyAlias 'etkey'
-            storePassword '86105970'
-            keyPassword '86105970'
-        }
-        release {
-            storeFile file('F:\\Android\\EasyTouch.jks')
-            keyAlias 'etkey'
-            storePassword '86105970'
-            keyPassword '86105970'
-        }
-    }
+//    signingConfigs {
+//        debug {
+//            storeFile file('F:\\Android\\EasyTouch.jks')
+//            keyAlias 'etkey'
+//            storePassword '86105970'
+//            keyPassword '86105970'
+//        }
+//        release {
+//            storeFile file('F:\\Android\\EasyTouch.jks')
+//            keyAlias 'etkey'
+//            storePassword '86105970'
+//            keyPassword '86105970'
+//        }
+//    }
     compileSdkVersion 30
     buildToolsVersion "30.0.3"
 
@@ -36,13 +36,13 @@ android {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+//            signingConfig signingConfigs.release
         }
 
         debug {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.debug
+//            signingConfig signingConfigs.debug
         }
     }
     compileOptions {
