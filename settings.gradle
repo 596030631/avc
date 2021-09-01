@@ -1,3 +1,4 @@
 rootProject.name = "video"
 include ':app'
 include ':avc'
+include ':libuvccamera'
