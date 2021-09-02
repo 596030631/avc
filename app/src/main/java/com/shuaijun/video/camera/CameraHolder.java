@@ -14,6 +14,8 @@ import com.shuaijun.video.render.RendererHolder;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class CameraHolder implements RenderHolderCallback {
 
@@ -24,6 +26,7 @@ public class CameraHolder implements RenderHolderCallback {
     private final UVCCamera camera;
     private final USBMonitor.UsbControlBlock usbControlBlock;
     private final RendererHolder rendererHolder;
+    private Timer timer;
 
     private static final int CODE_IDLE = 0;
     private static final int CODE_OPENED = 1;
@@ -49,7 +52,7 @@ public class CameraHolder implements RenderHolderCallback {
         });
     }
 
-    public void startRecording() {
+    public void startRecording(final int seconds) {
         handler.post(() -> {
             if (flag == CODE_OPENED) {
                 flag = CODE_RECORDING;
@@ -60,6 +63,18 @@ public class CameraHolder implements RenderHolderCallback {
                 camera.setPreviewDisplay(rendererHolder.getSurface());
                 camera.setFrameCallback(AvcEncoder.getInstance()::offerByteBuffer, UVCCamera.PIXEL_FORMAT_YUV420SP);
                 camera.startPreview();
+            }
+
+            if (flag == CODE_RECORDING) {
+                if (timer != null) timer.cancel();
+                timer = new Timer();
+                timer.schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        stopRecording();
+                        timer = null;
+                    }
+                }, Math.max(seconds * 1000, 5_000));
             }
         });
     }

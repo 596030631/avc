@@ -77,8 +77,8 @@ public final class UsbManager implements USBMonitor.OnDeviceConnectListener {
         }
     }
 
-    public void startRecording() {
-        if (cameraHolder != null) cameraHolder.startRecording();
+    public void startRecording(int seconds) {
+        if (cameraHolder != null) cameraHolder.startRecording(seconds);
     }
 
     public void stopRecording() {

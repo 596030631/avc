@@ -12,7 +12,7 @@ interface ICameraServiceAidl {
 
     void closeCamera();
 
-    void startRecording();
+    void startRecording(int secondes);
 
     void stopRecording();
 

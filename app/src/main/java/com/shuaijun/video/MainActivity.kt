@@ -42,7 +42,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.start_recording).setOnClickListener {
-            startRecording()
+            startRecording(5)
         }
 
         findViewById<Button>(R.id.stop_recording).setOnClickListener {
@@ -63,8 +63,8 @@ class MainActivity : AppCompatActivity() {
         applicationContext.unbindService(serviceConnection)
     }
 
-    private fun startRecording() {
-        cameraServiceAidl?.startRecording()
+    private fun startRecording(seconds: Int) {
+        cameraServiceAidl?.startRecording(seconds)
     }
 
     private fun stopRecording() {
