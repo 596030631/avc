@@ -61,7 +61,7 @@ public class CameraHolder implements RenderHolderCallback {
                 AvcEncoder.getInstance().startEncoder(outFile);
                 camera.setPreviewSize(WIDTH, HEIGHT, UVCCamera.DEFAULT_PREVIEW_MODE);
                 camera.setPreviewDisplay(rendererHolder.getSurface());
-                camera.setFrameCallback(AvcEncoder.getInstance()::offerByteBuffer, UVCCamera.PIXEL_FORMAT_YUV420SP);
+                camera.setFrameCallback(AvcEncoder.getInstance()::offerByteBuffer, UVCCamera.PIXEL_FORMAT_NV21);
                 camera.startPreview();
             }
 

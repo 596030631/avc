@@ -42,7 +42,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.start_recording).setOnClickListener {
-            startRecording(5)
+            startRecording(60)
         }
 
         findViewById<Button>(R.id.stop_recording).setOnClickListener {

@@ -3,10 +3,13 @@ package com.shuaijun.avc;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
-import android.os.SystemClock;
+import android.util.Log;
+
+import androidx.annotation.IntDef;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -20,120 +23,169 @@ import static android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME;
 
 
 public class AvcEncoder {
-    private final static String TAG = "MediaCodec";
 
-    private static final Executor thread = Executors.newSingleThreadExecutor();
+    private static final String TAG = "AvcEncoder";
+    private static final int TIMEOUT_USE = 12000;
+    private static final Queue<byte[]> yuv420spQueue = new LinkedBlockingQueue<>();
+    private static final Executor encoderThread = Executors.newSingleThreadExecutor();
 
-    private static final Queue<byte[]> yuv420spQUeue = new LinkedBlockingQueue<>();
+    private static final int STEP_IDLE = 0;
+    private static final int STEP_READY = 1;
+    private static final int STEP_START_RECORDING = 2;
+    private static final int STEP_STOP_RECORDING = 3;
+    private static final int STEP_END = 4;
 
-    private boolean isRunning = false;
+    @IntDef({STEP_IDLE, STEP_READY, STEP_START_RECORDING, STEP_STOP_RECORDING, STEP_END})
+    @interface WorkStep {
+    }
 
-    private final int TIMEOUT_USE = 12000;
+    @WorkStep
+    private int workStatus = STEP_IDLE;
+
+    private static final int WIDTH = 640;
+    private static final int HEIGHT = 480;
+    private static final int FRAME_RATE = 25;
 
     private MediaCodec mediaCodec;
-    int mWidth = 640;
-    int mHeight = 480;
-    int mFrameRate = 25;
     public byte[] configByte;
     private BufferedOutputStream outputStream;
+    private long index = 0L;
 
-    private void initMediaCodec() {
-        MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", mWidth, mHeight);
-        mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
-        mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, 800 * 1024);
-        mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, mFrameRate);
-        mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
-        mediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+    private synchronized void initMediaCodec() {
+        try {
+            if (mediaCodec == null) mediaCodec = MediaCodec.createEncoderByType("video/avc");
+            MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", WIDTH, HEIGHT);
+            mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
+            mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, WIDTH * HEIGHT * 2);
+            mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
+            mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
+            mediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+            workStatus = STEP_READY;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void stopEncoder() {
-        isRunning = false;
-        yuv420spQUeue.clear();
-    }
-
-    public void startEncoder(File outFile) {
-        thread.execute(() -> {
-            try {
-                outputStream = new BufferedOutputStream(new FileOutputStream(outFile));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            mediaCodec.start();
-            isRunning = true;
-            yuv420spQUeue.clear();
-            byte[] input;
-            long pts;
-            long generateIndex = 0;
-            try {
-                while (isRunning) {
-                    if (yuv420spQUeue.isEmpty()) {
-                        SystemClock.sleep(300);
-                        continue;
-                    }
-                    input = yuv420spQUeue.poll();
-                    if (input == null) continue;
-                    ByteBuffer[] inputBuffers = mediaCodec.getInputBuffers();
-                    ByteBuffer[] outputBuffers = mediaCodec.getOutputBuffers();
-                    int inputBufferIndex = mediaCodec.dequeueInputBuffer(-1);
-                    if (inputBufferIndex >= 0) {
-                        pts = computePresentationTime(generateIndex);
-                        ByteBuffer inputBuffer = inputBuffers[inputBufferIndex];
-                        inputBuffer.clear();
-                        inputBuffer.put(input);
-                        mediaCodec.queueInputBuffer(inputBufferIndex, 0, input.length, pts, 0);
-                        generateIndex += 1;
-                    }
-
-                    MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-                    int outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, this.TIMEOUT_USE);
-                    while (outputBufferIndex >= 0) {
-                        ByteBuffer outputBuffer = outputBuffers[outputBufferIndex];
-                        byte[] outData = new byte[bufferInfo.size];
-                        outputBuffer.get(outData);
-                        if (bufferInfo.flags == BUFFER_FLAG_CODEC_CONFIG) {
-                            configByte = new byte[bufferInfo.size];
-                            configByte = outData;
-                        } else if (bufferInfo.flags == BUFFER_FLAG_KEY_FRAME) {
-                            byte[] keyframe = new byte[bufferInfo.size + configByte.length];
-                            System.arraycopy(configByte, 0, keyframe, 0, configByte.length);
-                            System.arraycopy(outData, 0, keyframe, configByte.length, outData.length);
-                            outputStream.write(keyframe, 0, keyframe.length);
-                        } else {
-                            outputStream.write(outData, 0, outData.length);
-                        }
-                        mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
-                        outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USE);
-                    }
+        encoderThread.execute(() -> {
+            if (workStatus == STEP_START_RECORDING) {
+                workStatus = STEP_STOP_RECORDING;
+                while (!yuv420spQueue.isEmpty()) {
+                    index = encoderAvc(yuv420spQueue.poll(), index);
                 }
-                outputStream.flush();
-                outputStream.close();
+                try (BufferedOutputStream o = outputStream;) {
+                    o.flush();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
                 mediaCodec.stop();
                 initMediaCodec();
-            } catch (Exception t) {
-                t.printStackTrace();
+                workStatus = STEP_END;
             }
         });
     }
 
-    public void offerByteBuffer(ByteBuffer byteBuffer) {
-        while (yuv420spQUeue.size() > 10) {
-            yuv420spQUeue.poll();
+    public void startEncoder(File outFile) {
+        if (workStatus == STEP_READY) {
+            yuv420spQueue.clear();
+            FileOutputStream fo;
+            try {
+                fo = new FileOutputStream(outFile);
+                outputStream = new BufferedOutputStream(fo);
+                mediaCodec.start();
+                workStatus = STEP_START_RECORDING;
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
         }
-        byte[] bytes = new byte[byteBuffer.remaining()];
-        byteBuffer.get(bytes, 0, bytes.length);
-        yuv420spQUeue.offer(bytes);
+    }
+
+
+    public void offerByteBuffer(ByteBuffer byteBuffer) {
+        switch (workStatus) {
+            case STEP_IDLE:
+                Log.w("et_log", "未初始化,无法提交");
+                break;
+            case STEP_END:
+                Log.w("et_log", "处理结束,无法提交");
+                break;
+            case STEP_START_RECORDING:
+            case STEP_READY:
+                Log.w("et_log", "提交数据");
+                byte[] bytes = new byte[byteBuffer.remaining()];
+                byteBuffer.get(bytes, 0, bytes.length);
+                yuv420spQueue.offer(bytes);
+                if (yuv420spQueue.size() > 10) {
+                    encoderThread.execute(() -> {
+                        while (!yuv420spQueue.isEmpty()) {
+                            index = encoderAvc(yuv420spQueue.poll(), index);
+                        }
+                    });
+                }
+                break;
+            case STEP_STOP_RECORDING:
+                stopEncoder();
+                break;
+        }
+    }
+
+    private long encoderAvc(byte[] input, long generateIndex) {
+        if (input == null) return generateIndex;
+        long pts;
+        ByteBuffer[] inputBuffers = mediaCodec.getInputBuffers();
+        ByteBuffer[] outputBuffers = mediaCodec.getOutputBuffers();
+        int inputBufferIndex = mediaCodec.dequeueInputBuffer(-1);
+        if (inputBufferIndex >= 0) {
+            pts = computePresentationTime(generateIndex);
+            ByteBuffer inputBuffer = inputBuffers[inputBufferIndex];
+            inputBuffer.clear();
+            inputBuffer.put(input);
+            mediaCodec.queueInputBuffer(inputBufferIndex, 0, input.length, pts, 0);
+            generateIndex += 1;
+        }
+
+        MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+        int outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USE);
+        while (outputBufferIndex >= 0) {
+            ByteBuffer outputBuffer = outputBuffers[outputBufferIndex];
+            byte[] outData = new byte[bufferInfo.size];
+            outputBuffer.get(outData);
+            if (bufferInfo.flags == BUFFER_FLAG_CODEC_CONFIG) {
+                configByte = new byte[bufferInfo.size];
+                configByte = outData;
+            } else if (bufferInfo.flags == BUFFER_FLAG_KEY_FRAME) {
+                byte[] keyframe = new byte[bufferInfo.size + configByte.length];
+                System.arraycopy(configByte, 0, keyframe, 0, configByte.length);
+                System.arraycopy(outData, 0, keyframe, configByte.length, outData.length);
+                saveToFile(keyframe);
+            } else {
+                saveToFile(outData);
+            }
+            mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
+            outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USE);
+        }
+        return generateIndex;
+    }
+
+    private void saveToFile(byte[] outData) {
+        try {
+            outputStream.write(outData, 0, outData.length);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
      * Generates the presentation time for frame N, in microseconds.
      */
     private long computePresentationTime(long frameIndex) {
-        return 132 + frameIndex * 1000000 / mFrameRate;
+        return 132 + frameIndex * 1000000 / FRAME_RATE;
     }
 
     public void release() {
-        mediaCodec.release();
+        if (mediaCodec != null) mediaCodec.release();
     }
+
 
     public static AvcEncoder getInstance() {
         return Holder.ins;
@@ -144,12 +196,6 @@ public class AvcEncoder {
     }
 
     private AvcEncoder() {
-        //
-        try {
-            mediaCodec = MediaCodec.createEncoderByType("video/avc");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
         initMediaCodec();
     }
 }
