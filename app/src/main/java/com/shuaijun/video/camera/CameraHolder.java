@@ -52,11 +52,11 @@ public class CameraHolder implements RenderHolderCallback {
         });
     }
 
-    public void startRecording(final int seconds) {
+    public void startRecording(String pathName, final int seconds) {
         handler.post(() -> {
             if (flag == CODE_OPENED) {
                 flag = CODE_RECORDING;
-                File outFile = new File("/sdcard" + File.separator + SystemClock.elapsedRealtime() + ".h264");
+                File outFile = new File(pathName);
                 Log.d("et_log", "开始录像中，录像输出文件：" + outFile.getAbsolutePath());
                 AvcEncoder.getInstance().startEncoder(outFile);
                 camera.setPreviewSize(WIDTH, HEIGHT, UVCCamera.DEFAULT_PREVIEW_MODE);

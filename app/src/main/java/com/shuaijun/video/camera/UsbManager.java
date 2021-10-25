@@ -77,8 +77,8 @@ public final class UsbManager implements USBMonitor.OnDeviceConnectListener {
         }
     }
 
-    public void startRecording(int seconds) {
-        if (cameraHolder != null) cameraHolder.startRecording(seconds);
+    public void startRecording(String pathName, int seconds) {
+        if (cameraHolder != null) cameraHolder.startRecording(pathName, seconds);
     }
 
     public void stopRecording() {
@@ -87,6 +87,7 @@ public final class UsbManager implements USBMonitor.OnDeviceConnectListener {
 
     public void openCamera() {
         List<UsbDevice> list = usbMonitor.getDeviceList(filter);
+        Log.d("et_log", "相机：" + list.size());
         if (list.isEmpty()) return;
         onAttach(list.get(0)); // 只取一个能用的
     }

@@ -9,8 +9,8 @@ public class CameraBinder extends ICameraServiceAidl.Stub {
 
 
     @Override
-    public void startRecording(int seconds) throws RemoteException {
-        UsbManager.getInstance().startRecording(seconds);
+    public void startRecording(String pathName, int seconds) throws RemoteException {
+        UsbManager.getInstance().startRecording(pathName, seconds);
     }
 
     @Override
